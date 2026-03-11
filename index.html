@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Matcha POS</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#000;--s1:#0A0A0A;--s2:#111;--s3:#1A1A1A;--s4:#222;
+  --border:#2A2A2A;--border2:#3A3A3A;--border3:#4A4A4A;
+  --text:#FFF;--text2:#BBB;--text3:#666;
+  --danger:#FF4444;--dangerbg:#1A0000;
+}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;height:100vh}
+
+/* TOPBAR */
+.topbar{background:var(--s1);border-bottom:1px solid var(--border);height:50px;padding:0 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:100}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-dot{width:8px;height:8px;background:#fff;border-radius:50%}
+.brand-name{font-size:15px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
+.clock{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text3)}
+.topbar-right{display:flex;gap:6px}
+.tbtn{background:var(--s3);border:1px solid var(--border);color:var(--text2);padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;font-family:'Sora',sans-serif;cursor:pointer;transition:all .12s;letter-spacing:.03em}
+.tbtn:hover{background:var(--s4);border-color:var(--border2);color:var(--text)}
+.tbtn.danger{border-color:#330000;color:#ff6666}
+.tbtn.danger:hover{background:var(--dangerbg)}
+
+/* LAYOUT */
+.layout{display:flex;flex:1;overflow:hidden}
+
+/* MENU PANEL */
+.menu-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border)}
+.panel-top{padding:12px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+.panel-label{font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--text3);margin-bottom:8px}
+.cat-tabs{display:flex;gap:5px;overflow-x:auto}
+.cat-tabs::-webkit-scrollbar{display:none}
+.cat-tab{padding:4px 12px;border-radius:4px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;border:1px solid var(--border);color:var(--text3);background:transparent;transition:all .12s;letter-spacing:.03em}
+.cat-tab:hover{border-color:var(--border2);color:var(--text2)}
+.cat-tab.active{background:var(--text);border-color:var(--text);color:#000}
+
+.menu-scroll{flex:1;overflow-y:auto;padding:12px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;align-content:start}
+.menu-scroll::-webkit-scrollbar{width:3px}
+.menu-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+.menu-card{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;transition:all .12s;position:relative;user-select:none}
+.menu-card:hover{border-color:var(--border3);background:var(--s3)}
+.menu-card:active{transform:scale(.97)}
+.menu-card.in-cart{border-color:#fff;background:var(--s3)}
+.menu-emoji{font-size:24px;margin-bottom:6px;display:block}
+.mc-name{font-size:12px;font-weight:700;color:var(--text);line-height:1.3;margin-bottom:5px}
+.mc-price{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:var(--text)}
+.mc-modal{font-size:9px;color:var(--text3);margin-top:2px}
+.cart-badge{position:absolute;top:7px;right:7px;background:#fff;color:#000;width:18px;height:18px;border-radius:50%;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(.4);transition:all .2s cubic-bezier(.34,1.56,.64,1)}
+.menu-card.in-cart .cart-badge{opacity:1;transform:scale(1)}
+
+/* CART PANEL */
+.cart-panel{width:340px;flex-shrink:0;display:flex;flex-direction:column;background:var(--s1);overflow:hidden}
+.cart-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.cart-label{font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--text3)}
+.cart-count-badge{background:var(--s3);border:1px solid var(--border);color:var(--text2);font-size:10px;font-weight:600;padding:2px 8px;border-radius:4px}
+
+.cart-scroll{flex:1;overflow-y:auto;padding:8px 12px}
+.cart-scroll::-webkit-scrollbar{width:3px}
+.cart-scroll::-webkit-scrollbar-thumb{background:var(--border2)}
+
+.cart-empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text3);padding:40px 20px;text-align:center;height:100%}
+.cart-empty-state .e-icon{font-size:36px;margin-bottom:10px;opacity:.4}
+.cart-empty-state p{font-size:12px;line-height:1.6}
+
+.cart-item{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:6px;animation:fadeIn .15s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:translateX(0)}}
+.ci-top{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px}
+.ci-name{flex:1;font-size:12px;font-weight:700;color:var(--text);line-height:1.3}
+.ci-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:0;transition:color .1s;line-height:1}
+.ci-del:hover{color:var(--danger)}
+.ci-bottom{display:flex;align-items:center;justify-content:space-between}
+.qty-ctrl{display:flex;align-items:center;background:var(--s3);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.qbtn{width:28px;height:28px;background:none;border:none;color:var(--text2);font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .1s;line-height:1}
+.qbtn:hover{background:var(--s4);color:#fff}
+.qval{width:28px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:var(--text)}
+.ci-price{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:var(--text)}
+.ci-addons{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:4px}
+.achip{background:var(--s3);border:1px solid var(--border2);color:var(--text2);font-size:10px;font-weight:500;padding:2px 8px;border-radius:4px;cursor:pointer;display:flex;align-items:center;gap:3px;transition:all .1s}
+.achip:hover{background:var(--dangerbg);border-color:var(--danger);color:var(--danger)}
+.add-ao-btn{background:transparent;border:1px dashed var(--border2);color:var(--text3);font-size:10px;font-weight:500;padding:2px 8px;border-radius:4px;cursor:pointer;font-family:'Sora',sans-serif;transition:all .1s}
+.add-ao-btn:hover{border-color:var(--border3);color:var(--text2)}
+
+/* CART FOOTER */
+.cart-footer{border-top:1px solid var(--border);padding:12px 14px;flex-shrink:0}
+.total-lines{margin-bottom:10px}
+.tline{display:flex;justify-content:space-between;font-size:12px;padding:2px 0;color:var(--text3)}
+.tline .tval{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--text2)}
+.tline.grand{border-top:1px solid var(--border);margin-top:6px;padding-top:8px}
+.tline.grand .tlabel{font-size:14px;font-weight:700;color:var(--text)}
+.tline.grand .tval{font-size:18px;color:#fff}
+
+.pay-row{display:flex;gap:5px;margin-bottom:10px}
+.pbtn{flex:1;padding:7px 4px;background:var(--s3);border:1px solid var(--border);color:var(--text3);border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;letter-spacing:.04em;text-transform:uppercase;transition:all .12s;text-align:center}
+.pbtn:hover{border-color:var(--border2);color:var(--text2)}
+.pbtn.active{background:#fff;border-color:#fff;color:#000}
+
+.cash-row{display:flex;gap:6px;align-items:center;margin-bottom:4px}
+.cash-lbl{font-size:11px;color:var(--text3);white-space:nowrap;font-weight:600}
+.cash-in{flex:1;background:var(--s3);border:1px solid var(--border2);color:var(--text);padding:7px 10px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;outline:none;width:100%}
+.cash-in:focus{border-color:var(--border3)}
+.kem-line{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text3);text-align:right;min-height:16px;margin-bottom:8px}
+
+.numpad{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:10px}
+.npbtn{background:var(--s3);border:1px solid var(--border);color:var(--text2);padding:8px 4px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all .1s;text-align:center}
+.npbtn:hover{background:var(--s4);border-color:var(--border2);color:#fff}
+.npbtn:active{transform:scale(.94)}
+.npbtn.del{color:var(--danger)}
+.npbtn.quick{font-family:'Sora',sans-serif;font-size:10px;color:var(--text3)}
+
+.btn-co{width:100%;background:#fff;color:#000;border:none;border-radius:8px;padding:14px;font-size:14px;font-weight:800;font-family:'Sora',sans-serif;cursor:pointer;letter-spacing:.05em;text-transform:uppercase;transition:all .15s}
+.btn-co:hover{background:#e0e0e0}
+.btn-co:active{transform:scale(.98)}
+.btn-co:disabled{opacity:.2;cursor:not-allowed;transform:none}
+
+/* OVERLAY / MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.overlay.show{opacity:1;pointer-events:all}
+.modal{background:var(--s2);border:1px solid var(--border2);border-radius:14px;padding:22px;width:92%;max-width:380px;transform:scale(.9) translateY(12px);transition:transform .25s cubic-bezier(.34,1.56,.64,1);max-height:90vh;overflow-y:auto}
+.overlay.show .modal{transform:scale(1) translateY(0)}
+.modal h3{font-size:16px;font-weight:800;color:var(--text);margin-bottom:14px;letter-spacing:.02em}
+
+.addon-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px}
+.apbtn{background:var(--s3);border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:10px 12px;cursor:pointer;font-family:'Sora',sans-serif;text-align:left;transition:all .12s}
+.apbtn:hover{border-color:var(--border2)}
+.apbtn.sel{background:#1a1a1a;border-color:#fff;color:#fff}
+.apbtn .abn{font-size:11px;font-weight:700;margin-bottom:2px}
+.apbtn .abp{font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace}
+.apbtn.sel .abp{color:var(--text2)}
+
+.modal-btns{display:flex;gap:6px}
+.mbtn{flex:1;padding:10px;border-radius:8px;font-size:13px;font-weight:700;font-family:'Sora',sans-serif;cursor:pointer;border:none;transition:all .12s}
+.mbtn.cancel{background:var(--s3);color:var(--text2)}
+.mbtn.cancel:hover{background:var(--s4)}
+.mbtn.ok{background:#fff;color:#000}
+.mbtn.ok:hover{background:#ddd}
+
+/* RECEIPT */
+.receipt-wrap{background:#fff;color:#111;border-radius:12px;padding:22px 18px;font-family:'JetBrains Mono',monospace;max-width:300px;width:100%;max-height:90vh;overflow-y:auto}
+.r-head{text-align:center;border-bottom:2px dashed #ccc;padding-bottom:14px;margin-bottom:12px}
+.r-shop{font-family:'Sora',sans-serif;font-size:20px;font-weight:800;color:#000;letter-spacing:.05em}
+.r-sub{font-size:10px;color:#666;margin-top:2px}
+.r-dt{font-size:9px;color:#999;margin-top:6px}
+.ri{display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px solid #eee}
+.ri-p{font-weight:700}
+.r-addon-line{font-size:9px;color:#888;padding:1px 0 1px 10px}
+.r-totals{border-top:2px dashed #ccc;padding-top:10px;margin-top:4px}
+.rl{display:flex;justify-content:space-between;font-size:11px;padding:2px 0;color:#555}
+.rl.grand{font-size:15px;font-weight:700;color:#000;margin-top:6px}
+.rl.kem{color:#000;font-weight:700}
+.r-foot{text-align:center;margin-top:14px;padding-top:12px;border-top:2px dashed #ccc;font-size:9px;color:#888;line-height:2}
+.r-actions{display:flex;gap:6px;margin-top:14px}
+
+/* FULL PANELS */
+.full-panel{position:fixed;inset:0;background:var(--bg);z-index:150;display:flex;flex-direction:column;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,.72,0,1);overflow:hidden}
+.full-panel.show{transform:translateY(0)}
+.fp-head{background:var(--s1);border-bottom:1px solid var(--border);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.fp-title{font-size:16px;font-weight:800;letter-spacing:.03em}
+.fp-close{background:var(--s3);border:1px solid var(--border);color:var(--text2);padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;letter-spacing:.05em;text-transform:uppercase;transition:all .12s}
+.fp-close:hover{background:var(--s4);color:#fff}
+.fp-body{flex:1;overflow-y:auto;padding:18px;max-width:680px;margin:0 auto;width:100%}
+
+/* LAPORAN */
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px}
+.stat-box{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
+.sv{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:#fff;display:block;margin-bottom:4px}
+.sl{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.12em}
+.sec-hd{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--text3);margin:18px 0 10px;display:flex;align-items:center;gap:10px}
+.sec-hd::after{content:'';flex:1;height:1px;background:var(--border)}
+.lap-table{width:100%;border-collapse:separate;border-spacing:0;border-radius:8px;overflow:hidden;border:1px solid var(--border);margin-bottom:8px}
+.lap-table th{background:var(--s2);padding:9px 14px;font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);text-align:left}
+.lap-table th:last-child,.lap-table td:last-child{text-align:right}
+.lap-table td{padding:9px 14px;font-size:12px;border-top:1px solid var(--border);color:var(--text2)}
+.lap-table tr:hover td{background:var(--s2);color:#fff}
+.bpay{display:inline-block;padding:2px 8px;border-radius:4px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.bpay.tunai{background:#1a1a1a;color:#fff;border:1px solid #333}
+.bpay.transfer{background:#001a33;color:#66aaff;border:1px solid #003366}
+.bpay.qris{background:#1a001a;color:#cc66ff;border:1px solid #330033}
+
+/* SETTINGS */
+.settings-item{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.si-info{flex:1;min-width:0}
+.si-sub{font-size:9px;color:var(--text3);margin-top:3px;text-transform:uppercase;letter-spacing:.08em}
+.si-actions{display:flex;gap:6px;align-items:center;flex-shrink:0}
+
+.si-inp{background:var(--s3);border:1px solid var(--border2);color:var(--text);padding:5px 8px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;width:100px;outline:none;text-align:right}
+.si-inp:focus{border-color:var(--border3)}
+.edit-name-inp{background:var(--s3);border:1px solid var(--border2);color:var(--text);padding:4px 8px;border-radius:6px;font-family:'Sora',sans-serif;font-size:12px;font-weight:600;width:100%;outline:none}
+.edit-name-inp:focus{border-color:var(--border3)}
+.save-chip{background:#fff;color:#000;border:none;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;transition:all .12s;white-space:nowrap}
+.save-chip:hover{background:#ddd}
+.del-chip{background:var(--dangerbg);border:1px solid #330000;color:var(--danger);padding:6px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;transition:all .12s;white-space:nowrap}
+.del-chip:hover{background:#2a0000}
+
+.add-form{background:var(--s2);border:1px solid var(--border2);border-radius:10px;padding:16px;margin-top:16px}
+.add-form h4{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:12px}
+.form-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.form-inp{background:var(--s3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-family:'Sora',sans-serif;font-size:12px;outline:none;flex:1;min-width:100px}
+.form-inp:focus{border-color:var(--border2)}
+.form-inp.mono{font-family:'JetBrains Mono',monospace}
+.form-add-btn{width:100%;background:#fff;color:#000;border:none;border-radius:6px;padding:10px;font-size:12px;font-weight:700;font-family:'Sora',sans-serif;cursor:pointer;letter-spacing:.05em;text-transform:uppercase;transition:all .12s}
+.form-add-btn:hover{background:#ddd}
+
+/* TRANSACTION CARDS */
+.trx-card{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:6px;transition:border-color .12s}
+.trx-card:hover{border-color:var(--border2)}
+.trx-row-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.trx-time{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text2)}
+.trx-total{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#fff}
+.trx-items-summary{font-size:11px;color:var(--text3);line-height:1.5;margin-top:2px}
+.trx-edit-btn{background:var(--s3);border:1px solid var(--border2);color:var(--text3);font-size:10px;font-weight:600;padding:3px 9px;border-radius:4px;cursor:pointer;font-family:'Sora',sans-serif;transition:all .12s}
+.trx-edit-btn:hover{background:var(--s4);color:var(--text)}
+.trx-del-btn{background:transparent;border:1px solid #330000;color:#aa3333;font-size:10px;font-weight:600;padding:3px 8px;border-radius:4px;cursor:pointer;font-family:'Sora',sans-serif;transition:all .12s}
+.trx-del-btn:hover{background:var(--dangerbg);color:var(--danger)}
+.trx-edit-form{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(60px);background:#fff;color:#000;padding:9px 20px;border-radius:6px;font-size:12px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.6);transition:transform .3s cubic-bezier(.34,1.56,.64,1);z-index:999;pointer-events:none;letter-spacing:.03em}
+.toast.show{transform:translateX(-50%) translateY(0)}
+
+@media(max-width:600px){
+  .cart-panel{width:100%;position:fixed;bottom:0;left:0;right:0;height:56%;z-index:50;border-top:1px solid var(--border);border-right:none}
+  .layout{flex-direction:column}
+  .menu-panel{height:44%}
+  .stat-row{grid-template-columns:repeat(2,1fr)}
+  .clock{display:none}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><div class="brand-dot"></div><span class="brand-name">Matcha POS</span></div>
+  <div class="clock" id="clock">—</div>
+  <div class="topbar-right">
+    <button class="tbtn" onclick="showSettings()">⚙ Edit Menu</button>
+    <button class="tbtn" id="reset-btn" onclick="emergencyReset()" style="display:none;border-color:#330000;color:#ff6666" title="Klik jika menu hilang">↺ Pulihkan</button>
+    <button class="tbtn" onclick="showLaporan()">▤ Laporan</button>
+    <button class="tbtn danger" onclick="clearCart()">✕ Kosongkan</button>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="menu-panel">
+    <div class="panel-top">
+      <div class="panel-label">Pilih Menu</div>
+      <div class="cat-tabs" id="cat-tabs"></div>
+    </div>
+    <div class="menu-scroll" id="menu-grid"></div>
+  </div>
+
+  <div class="cart-panel">
+    <div class="cart-head">
+      <span class="cart-label">Pesanan</span>
+      <span class="cart-count-badge" id="cart-count">0 item</span>
+    </div>
+    <div class="cart-scroll" id="cart-scroll">
+      <div class="cart-empty-state" id="cart-empty">
+        <div class="e-icon">◻</div>
+        <p>Keranjang kosong.<br>Ketuk menu untuk menambahkan.</p>
+      </div>
+    </div>
+    <div class="cart-footer">
+      <div class="total-lines">
+        <div class="tline"><span class="tlabel">Menu</span><span class="tval" id="t-menu">Rp0</span></div>
+        <div class="tline"><span class="tlabel">Add-On</span><span class="tval" id="t-addon">Rp0</span></div>
+        <div class="tline grand"><span class="tlabel">TOTAL</span><span class="tval" id="t-grand">Rp0</span></div>
+        <div class="tline" style="display:none"><span class="tlabel" style="font-size:10px;color:var(--text3)">Est. Profit</span><span class="tval" id="t-profit" style="font-size:12px;color:var(--text3)">Rp0</span></div>
+      </div>
+      <div class="pay-row">
+        <button class="pbtn active" id="p-tunai" onclick="setPay('tunai')">💵 Tunai</button>
+        <button class="pbtn" id="p-transfer" onclick="setPay('transfer')">🏦 Transfer</button>
+        <button class="pbtn" id="p-qris" onclick="setPay('qris')">📱 QRIS</button>
+      </div>
+      <div id="cash-section">
+        <div class="cash-row">
+          <span class="cash-lbl">Bayar:</span>
+          <input class="cash-in" id="cash-in" type="text" placeholder="0" readonly>
+        </div>
+        <div class="kem-line" id="kem-line"></div>
+        <div class="numpad" id="numpad"></div>
+      </div>
+      <button class="btn-co" id="btn-co" onclick="checkout()" disabled>Proses Pembayaran</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADDON MODAL -->
+<div class="overlay" id="addon-overlay">
+  <div class="modal">
+    <h3>Tambah Add-On</h3>
+    <p style="font-size:11px;color:var(--text3);margin-bottom:12px" id="ao-item-name"></p>
+    <div class="addon-grid" id="ao-grid"></div>
+    <div class="modal-btns">
+      <button class="mbtn cancel" onclick="closeAo()">Batal</button>
+      <button class="mbtn ok" onclick="applyAo()">Tambahkan</button>
+    </div>
+  </div>
+</div>
+
+<!-- RECEIPT -->
+<div class="overlay" id="rcpt-overlay">
+  <div class="receipt-wrap" id="rcpt-content"></div>
+</div>
+
+<!-- LAPORAN -->
+<div class="full-panel" id="lap-panel">
+  <div class="fp-head">
+    <span class="fp-title">▤ LAPORAN PENJUALAN</span>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input type="date" id="lap-date" style="background:var(--s3);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:6px;font-family:'Sora',sans-serif;font-size:11px;outline:none">
+      <button class="fp-close" onclick="hideLaporan()">✕ Tutup</button>
+    </div>
+  </div>
+  <div class="fp-body" id="lap-body"></div>
+</div>
+
+<!-- SETTINGS -->
+<div class="full-panel" id="set-panel">
+  <div class="fp-head">
+    <span class="fp-title">⚙ EDIT MENU & HARGA</span>
+    <button class="fp-close" onclick="hideSettings()">✕ Tutup</button>
+  </div>
+  <div class="fp-body" id="set-body"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── DEFAULT DATA ──
+const DEFAULT_MENU=[
+  {id:'ml_dairy',cat:'menu',emoji:'🥛',name:'Matcha Latte (Dairy)',jual:50000,modal:14920},
+  {id:'ml_oat',  cat:'menu',emoji:'🌾',name:'Matcha Latte (Oat)',  jual:52000,modal:15920},
+  {id:'sml',     cat:'menu',emoji:'🍓',name:'Strawberry Matcha',   jual:58000,modal:19600},
+  {id:'cml',     cat:'menu',emoji:'🍮',name:'Caramel Matcha',      jual:54000,modal:16605},
+];
+const DEFAULT_ADDONS=[
+  {id:'ccf',  cat:'addon',emoji:'🧁',name:'Cream Cheese Foam',jual:8000, modal:2500},
+  {id:'boba', cat:'addon',emoji:'🧋',name:'Boba / Pearl',     jual:5000, modal:1500},
+  {id:'jelly',cat:'addon',emoji:'🟫',name:'Grass Jelly',      jual:4000, modal:1000},
+  {id:'pudd', cat:'addon',emoji:'🍮',name:'Pudding Susu',     jual:5000, modal:1800},
+  {id:'xmat', cat:'addon',emoji:'⚡',name:'Extra Matcha Shot',jual:8000, modal:2000},
+  {id:'syrup',cat:'addon',emoji:'🍯',name:'Syrup Upgrade',    jual:5000, modal:800},
+  {id:'coll', cat:'addon',emoji:'💊',name:'Collagen / Vit C', jual:10000,modal:3000},
+  {id:'mochi',cat:'addon',emoji:'🍡',name:'Mochi (1pc)',      jual:10000,modal:3500},
+];
+
+// ── LOAD/SAVE ──
+function ls(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
+function ss(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+
+function loadValidated(key, defaults) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return JSON.parse(JSON.stringify(defaults));
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) return JSON.parse(JSON.stringify(defaults));
+    const valid = parsed.filter(i => i && i.name && i.jual > 0);
+    if (valid.length === 0) return JSON.parse(JSON.stringify(defaults));
+    return valid.map(i => ({...i, cat: i.cat || (key === 'pos_menu' ? 'menu' : 'addon')}));
+  } catch(e) { return JSON.parse(JSON.stringify(defaults)); }
+}
+
+let MENU_ITEMS = loadValidated('pos_menu', DEFAULT_MENU);
+let ADDON_ITEMS = loadValidated('pos_addons', DEFAULT_ADDONS);
+function saveMenu(){ss('pos_menu',MENU_ITEMS);}
+function saveAddons(){ss('pos_addons',ADDON_ITEMS);}
+
+// ── STATE ──
+let cart=[],payMethod='tunai',cashStr='',activeAoIdx=null,tempAo=[],activeCat='semua';
+
+// ── HELPERS ──
+function fmt(n){return 'Rp'+Math.round(n).toLocaleString('id-ID');}
+function fmtK(n){if(n>=1000000)return 'Rp'+(n/1000000).toFixed(1).replace('.0','')+'jt';if(n>=1000)return 'Rp'+(n/1000).toFixed(0)+'K';return fmt(n);}
+function today(){return new Date().toISOString().slice(0,10);}
+function fmtDate(s){return new Date(s+'T00:00:00').toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'});}
+function fmtTime(iso){return new Date(iso).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});}
+function uid(){return Date.now()+'_'+Math.random().toString(36).slice(2,7);}
+
+// ── CLOCK ──
+function tick(){const n=new Date();document.getElementById('clock').textContent=n.toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'})+' · '+n.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
+setInterval(tick,1000);tick();
+
+// ── CATEGORIES ──
+const CATS=[{id:'semua',label:'Semua'},{id:'menu',label:'Menu Utama'},{id:'addon',label:'Add-On'}];
+function buildCats(){
+  const el=document.getElementById('cat-tabs');el.innerHTML='';
+  CATS.forEach(c=>{
+    const b=document.createElement('button');
+    b.className='cat-tab'+(c.id===activeCat?' active':'');
+    b.textContent=c.label;
+    b.onclick=()=>{activeCat=c.id;buildCats();renderMenu();};
+    el.appendChild(b);
+  });
+}
+
+// ── MENU ──
+function allItems(){return[...MENU_ITEMS,...ADDON_ITEMS];}
+function renderMenu(){
+  const grid=document.getElementById('menu-grid');grid.innerHTML='';
+  allItems().filter(i=>activeCat==='semua'||i.cat===activeCat).forEach(item=>{
+    const qty=cart.filter(c=>c.id===item.id).reduce((s,c)=>s+c.qty,0);
+    const div=document.createElement('div');
+    div.className='menu-card'+(qty>0?' in-cart':'');
+    div.innerHTML=`<div class="cart-badge">${qty}</div><span class="menu-emoji">${item.emoji}</span><div class="mc-name">${item.name}</div><div class="mc-price">${fmt(item.jual)}</div>`;
+    div.onclick=()=>addToCart(item);
+    grid.appendChild(div);
+  });
+}
+
+// ── CART ──
+function addToCart(item){
+  cart.push({_id:uid(),id:item.id,name:item.name,jual:item.jual,modal:item.modal,qty:1,addons:[]});
+  renderCart();renderMenu();showToast('+ '+item.name);
+}
+function removeFromCart(i){cart.splice(i,1);renderCart();renderMenu();}
+function changeQty(i,d){cart[i].qty=Math.max(1,cart[i].qty+d);renderCart();renderMenu();}
+function removeAddon(ci,ai){cart[ci].addons.splice(ai,1);renderCart();}
+function getGrand(){return cart.reduce((s,i)=>s+i.jual*i.qty+i.addons.reduce((a,o)=>a+o.price*i.qty,0),0);}
+function getModal(){return cart.reduce((s,i)=>s+i.modal*i.qty+i.addons.reduce((a,o)=>a+o.modal*i.qty,0),0);}
+
+function renderCart(){
+  const wrap=document.getElementById('cart-scroll');
+  const empty=document.getElementById('cart-empty');
+  wrap.querySelectorAll('.cart-item').forEach(e=>e.remove());
+  if(!cart.length){empty.style.display='flex';}
+  else{
+    empty.style.display='none';
+    const frag=document.createDocumentFragment();
+    cart.forEach((item,i)=>{
+      const lnT=item.jual*item.qty+item.addons.reduce((s,a)=>s+a.price*item.qty,0);
+      const div=document.createElement('div');div.className='cart-item';
+      div.innerHTML=`
+        <div class="ci-top"><span class="ci-name">${item.name}</span><button class="ci-del" onclick="removeFromCart(${i})">✕</button></div>
+        <div class="ci-bottom">
+          <div class="qty-ctrl"><button class="qbtn" onclick="changeQty(${i},-1)">−</button><span class="qval">${item.qty}</span><button class="qbtn" onclick="changeQty(${i},1)">+</button></div>
+          <span class="ci-price">${fmt(lnT)}</span>
+        </div>
+        <div class="ci-addons">
+          ${item.addons.map((a,ai)=>`<span class="achip" onclick="removeAddon(${i},${ai})">${a.name} +${fmt(a.price)} ✕</span>`).join('')}
+          <button class="add-ao-btn" onclick="openAo(${i})">+ Add-on</button>
+        </div>`;
+      frag.appendChild(div);
+    });
+    wrap.appendChild(frag);
+  }
+  updateTotals();updateCoBtn();
+  document.getElementById('cart-count').textContent=cart.reduce((s,i)=>s+i.qty,0)+' item';
+}
+
+function updateTotals(){
+  let menu=0,addon=0;
+  cart.forEach(i=>{menu+=i.jual*i.qty;addon+=i.addons.reduce((s,a)=>s+a.price*i.qty,0);});
+  const grand=menu+addon;
+  document.getElementById('t-menu').textContent=fmt(menu);
+  document.getElementById('t-addon').textContent=fmt(addon);
+  document.getElementById('t-grand').textContent=fmt(grand);
+  document.getElementById('t-profit').textContent=fmt(grand-getModal());
+  updateKem(grand);
+}
+function updateKem(grand){
+  if(payMethod!=='tunai'){document.getElementById('kem-line').textContent='';return;}
+  const paid=parseInt(cashStr||'0'),diff=paid-grand,el=document.getElementById('kem-line');
+  if(cashStr&&diff>=0)el.textContent='Kembalian: '+fmt(diff);
+  else if(cashStr&&diff<0)el.textContent='Kurang: '+fmt(-diff);
+  else el.textContent='';
+}
+function updateCoBtn(){
+  const btn=document.getElementById('btn-co');
+  if(!cart.length){btn.disabled=true;return;}
+  btn.disabled=payMethod==='tunai'&&parseInt(cashStr||'0')<getGrand();
+}
+
+// ── PAYMENT ──
+function setPay(m){
+  payMethod=m;
+  ['tunai','transfer','qris'].forEach(x=>document.getElementById('p-'+x).classList.toggle('active',x===m));
+  document.getElementById('cash-section').style.display=m==='tunai'?'block':'none';
+  updateTotals();updateCoBtn();
+}
+function buildNumpad(){
+  ['1','2','3','5K','4','5','6','10K','7','8','9','20K','⌫','0','000','50K'].forEach(k=>{
+    const b=document.createElement('button');
+    b.className='npbtn'+(k==='⌫'?' del':'')+(['5K','10K','20K','50K'].includes(k)?' quick':'');
+    b.textContent=k;b.onclick=()=>numPress(k);
+    document.getElementById('numpad').appendChild(b);
+  });
+}
+function numPress(k){
+  const g=getGrand();
+  if(k==='⌫')cashStr=cashStr.slice(0,-1);
+  else if(k==='5K')cashStr=String(Math.ceil(g/5000)*5000);
+  else if(k==='10K')cashStr=String(Math.ceil(g/10000)*10000);
+  else if(k==='20K')cashStr=String(Math.ceil(g/20000)*20000);
+  else if(k==='50K')cashStr=String(Math.ceil(g/50000)*50000);
+  else{if(cashStr.length>=9)return;cashStr+=k;}
+  document.getElementById('cash-in').value=cashStr?'Rp'+parseInt(cashStr).toLocaleString('id-ID'):'';
+  updateKem(g);updateCoBtn();
+}
+
+// ── ADDON MODAL ──
+function openAo(idx){
+  activeAoIdx=idx;tempAo=[...cart[idx].addons.map(a=>a.id)];
+  document.getElementById('ao-item-name').textContent=cart[idx].name;
+  const grid=document.getElementById('ao-grid');grid.innerHTML='';
+  ADDON_ITEMS.forEach(a=>{
+    const b=document.createElement('button');
+    b.className='apbtn'+(tempAo.includes(a.id)?' sel':'');b.id='apb_'+a.id;
+    b.innerHTML=`<div class="abn">${a.emoji} ${a.name}</div><div class="abp">+${fmt(a.jual)}</div>`;
+    b.onclick=()=>{const i=tempAo.indexOf(a.id);if(i>=0){tempAo.splice(i,1);b.classList.remove('sel');}else{tempAo.push(a.id);b.classList.add('sel');}};
+    grid.appendChild(b);
+  });
+  document.getElementById('addon-overlay').classList.add('show');
+}
+function closeAo(){document.getElementById('addon-overlay').classList.remove('show');}
+function applyAo(){
+  if(activeAoIdx===null)return;
+  cart[activeAoIdx].addons=tempAo.map(id=>{const a=ADDON_ITEMS.find(x=>x.id===id);return{id:a.id,name:a.name,price:a.jual,modal:a.modal};});
+  renderCart();closeAo();
+}
+
+// ── CHECKOUT ──
+function checkout(){
+  if(!cart.length)return;
+  const grand=getGrand(),modal=getModal(),paid=payMethod==='tunai'?parseInt(cashStr):grand;
+  const trx={id:Date.now(),time:new Date().toISOString(),date:today(),items:JSON.parse(JSON.stringify(cart)),grand,modalTotal:modal,profit:grand-modal,payMethod,paid,kembalian:paid-grand};
+  saveTrx(trx);showReceipt(trx);
+  cart=[];cashStr='';document.getElementById('cash-in').value='';
+  renderCart();renderMenu();
+  showToast('✓ Berhasil — Profit: '+fmt(trx.profit));
+}
+
+// ── RECEIPT ──
+function showReceipt(trx){
+  const shopName=localStorage.getItem('pos_shopname')||'Matcha Booth';
+  const shopSub=localStorage.getItem('pos_shopsub')||'Premium Matcha Drinks';
+  let ihtml='';
+  trx.items.forEach(item=>{
+    const sub=item.jual*item.qty+item.addons.reduce((s,a)=>s+a.price*item.qty,0);
+    ihtml+=`<div class="ri"><span class="ri-n">${item.qty}× ${item.name}</span><span class="ri-p">${fmt(sub)}</span></div>`;
+    item.addons.forEach(a=>{ihtml+=`<div class="r-addon-line">+ ${a.name} +${fmt(a.price)}/cup</div>`;});
+  });
+  document.getElementById('rcpt-content').innerHTML=`
+    <div class="r-head"><div class="r-shop">${shopName}</div><div class="r-sub">${shopSub}</div>
+    <div class="r-dt">${new Date(trx.time).toLocaleString('id-ID',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+    <div class="r-dt">No: #${String(trx.id).slice(-6)}</div></div>
+    ${ihtml}
+    <div class="r-totals">
+      <div class="rl"><span>Total</span><span>${fmt(trx.grand)}</span></div>
+      <div class="rl"><span>Metode</span><span style="text-transform:capitalize">${trx.payMethod}</span></div>
+      ${trx.payMethod==='tunai'?`<div class="rl"><span>Diterima</span><span>${fmt(trx.paid)}</span></div><div class="rl kem"><span>Kembalian</span><span>${fmt(trx.kembalian)}</span></div>`:''}
+      <div class="rl grand"><span>TOTAL BAYAR</span><span>${fmt(trx.grand)}</span></div>
+    </div>
+    <div class="r-foot">Terima kasih! 🙏<br>Selamat menikmati matcha Anda 🍵</div>
+    <div class="r-actions">
+      <button onclick="closeReceipt()" style="flex:1;padding:9px;border-radius:6px;font-size:12px;font-weight:700;font-family:'Sora',sans-serif;cursor:pointer;border:none;background:#eee;color:#000;">✕ Tutup</button>
+      <button onclick="printR()" style="flex:1;padding:9px;border-radius:6px;font-size:12px;font-weight:700;font-family:'Sora',sans-serif;cursor:pointer;border:none;background:#000;color:#fff;">🖨 Cetak</button>
+    </div>`;
+  document.getElementById('rcpt-overlay').classList.add('show');
+}
+function closeReceipt(){document.getElementById('rcpt-overlay').classList.remove('show');}
+function printR(){
+  const c=document.getElementById('rcpt-content').innerHTML;
+  const w=window.open('','_blank','width=380,height=620');
+  w.document.write(`<html><head><title>Struk</title><link href="https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'JetBrains Mono',monospace;max-width:280px;margin:0 auto;padding:16px;font-size:11px;color:#111}.r-head{text-align:center;border-bottom:2px dashed #ccc;padding-bottom:12px;margin-bottom:12px}.r-shop{font-family:'Sora',sans-serif;font-size:18px;font-weight:800;color:#000;letter-spacing:.05em}.r-sub,.r-dt{font-size:9px;color:#666;text-align:center;margin-top:2px}.ri{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #eee}.ri-p{font-weight:700}.r-addon-line{font-size:9px;color:#888;padding-left:10px}.r-totals{border-top:2px dashed #ccc;padding-top:8px;margin-top:4px}.rl{display:flex;justify-content:space-between;padding:2px 0;color:#555}.rl.grand{font-size:14px;font-weight:700;color:#000;margin-top:6px}.rl.kem{color:#000;font-weight:700}.r-foot{text-align:center;margin-top:12px;padding-top:10px;border-top:2px dashed #ccc;font-size:9px;color:#888;line-height:2}.r-actions{display:none}</style>
+  </head><body>${c}</body></html>`);
+  w.document.close();setTimeout(()=>{w.print();w.close();},500);
+}
+
+// ── STORAGE ──
+function saveTrx(t){let d=loadTrx();d.push(t);ss('matcha_pos_trx',d);}
+function loadTrx(){return ls('matcha_pos_trx',[]);}
+
+// ── LAPORAN ──
+function showLaporan(){document.getElementById('lap-date').value=today();document.getElementById('lap-panel').classList.add('show');renderLaporan();}
+function hideLaporan(){document.getElementById('lap-panel').classList.remove('show');}
+document.getElementById('lap-date').addEventListener('change',renderLaporan);
+
+function renderLaporan(){
+  const date=document.getElementById('lap-date').value||today();
+  const trxs=loadTrx().filter(t=>t.date===date);
+  const rev=trxs.reduce((s,t)=>s+t.grand,0),profit=trxs.reduce((s,t)=>s+t.profit,0);
+  const cups=trxs.reduce((s,t)=>s+t.items.reduce((ss,i)=>ss+i.qty,0),0),margin=rev>0?Math.round(profit/rev*100):0;
+  const imap={},amap={};
+  trxs.forEach(t=>{t.items.forEach(i=>{if(!imap[i.name])imap[i.name]={qty:0,rev:0};imap[i.name].qty+=i.qty;imap[i.name].rev+=i.jual*i.qty;i.addons.forEach(a=>{if(!amap[a.name])amap[a.name]={qty:0,rev:0};amap[a.name].qty+=i.qty;amap[a.name].rev+=a.price*i.qty;});});});
+  document.getElementById('lap-body').innerHTML=`
+    <div style="font-size:12px;color:var(--text3);margin-bottom:14px">${fmtDate(date)} · ${trxs.length} transaksi</div>
+    <div class="stat-row">
+      <div class="stat-box"><span class="sv">${trxs.length}</span><span class="sl">Transaksi</span></div>
+      <div class="stat-box"><span class="sv">${cups}</span><span class="sl">Cup Terjual</span></div>
+      <div class="stat-box"><span class="sv" style="font-size:16px">${fmtK(rev)}</span><span class="sl">Pendapatan</span></div>
+      <div class="stat-box"><span class="sv" style="font-size:16px">${fmtK(profit)}</span><span class="sl">Profit</span></div>
+    </div>
+    <div class="sec-hd">Penjualan per Menu</div>
+    <table class="lap-table"><thead><tr><th>Menu</th><th>Qty</th><th>Total</th></tr></thead><tbody>
+    ${Object.entries(imap).sort((a,b)=>b[1].qty-a[1].qty).map(([n,d])=>`<tr><td>${n}</td><td>${d.qty}×</td><td>${fmt(d.rev)}</td></tr>`).join('')||'<tr><td colspan="3" style="text-align:center;color:var(--text3)">Belum ada data</td></tr>'}
+    </tbody></table>
+    ${Object.keys(amap).length?`<div class="sec-hd">Add-On</div><table class="lap-table"><thead><tr><th>Add-On</th><th>Qty</th><th>Total</th></tr></thead><tbody>${Object.entries(amap).sort((a,b)=>b[1].qty-a[1].qty).map(([n,d])=>`<tr><td>${n}</td><td>${d.qty}×</td><td>${fmt(d.rev)}</td></tr>`).join('')}</tbody></table>`:''}
+    <div class="sec-hd">Riwayat Transaksi</div>
+    <div id="trx-list">${renderTrxList(trxs)}</div>
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-top:16px;display:flex;justify-content:space-between;align-items:center">
+      <div><div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">Ringkasan</div>
+        <div style="font-size:12px;color:var(--text2)">Total Penjualan: <b style="color:#fff">${fmt(rev)}</b></div>
+        <div style="font-size:12px;color:var(--text2)">${trxs.length} transaksi · ${cups} cup</div></div>
+      <div style="text-align:right"><div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">Total Pendapatan</div>
+        <div style="font-size:24px;font-weight:800;color:#fff;font-family:'JetBrains Mono',monospace">${fmt(rev)}</div>
+        <div style="font-size:10px;color:var(--text3)">Margin ${margin}%</div></div>
+    </div>`;
+}
+
+function renderTrxList(trxs){
+  if(!trxs.length) return `<div style="text-align:center;color:var(--text3);padding:20px;font-size:12px">Belum ada transaksi</div>`;
+  return trxs.slice().reverse().map(t=>{
+    const itemSummary=t.items.map(i=>i.qty+'× '+i.name+(i.addons.length?' ('+i.addons.map(a=>a.name).join(', ')+')':'')).join(', ');
+    return `<div class="trx-card" id="trx_${t.id}">
+      <div class="trx-view">
+        <div class="trx-row-top">
+          <div>
+            <span class="trx-time">${fmtTime(t.time)}</span>
+            <span class="bpay ${t.payMethod}" style="margin-left:6px">${t.payMethod}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="trx-total">${fmt(t.grand)}</span>
+            <button class="trx-edit-btn" onclick="startEditTrx('${t.id}')">✎ Edit</button>
+            <button class="trx-del-btn" onclick="deleteTrx('${t.id}')">✕</button>
+          </div>
+        </div>
+        <div class="trx-items-summary">${itemSummary}</div>
+      </div>
+      <div class="trx-edit-form" id="ef_${t.id}" style="display:none">
+        <div style="font-size:10px;color:var(--text3);margin-bottom:8px;letter-spacing:.1em;text-transform:uppercase">Edit Transaksi</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+          <div style="flex:1;min-width:120px">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:3px">Total (Rp)</div>
+            <input class="si-inp" id="et_grand_${t.id}" value="${t.grand}" style="width:100%">
+          </div>
+          <div style="flex:1;min-width:120px">
+            <div style="font-size:10px;color:var(--text3);margin-bottom:3px">Metode Bayar</div>
+            <select id="et_pay_${t.id}" style="background:var(--s3);border:1px solid var(--border2);color:var(--text);padding:5px 8px;border-radius:6px;font-family:'Sora',sans-serif;font-size:12px;outline:none;width:100%">
+              <option value="tunai" ${t.payMethod==='tunai'?'selected':''}>Tunai</option>
+              <option value="transfer" ${t.payMethod==='transfer'?'selected':''}>Transfer</option>
+              <option value="qris" ${t.payMethod==='qris'?'selected':''}>QRIS</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-bottom:8px">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:3px">Catatan Item (opsional)</div>
+          <input class="form-inp" id="et_note_${t.id}" value="${t.note||''}" placeholder="cth: 2× Matcha Latte, 1× Strawberry" style="width:100%">
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="save-chip" onclick="saveTrxEdit('${t.id}')">✓ Simpan</button>
+          <button class="del-chip" onclick="cancelEditTrx('${t.id}')" style="background:var(--s3);border-color:var(--border);color:var(--text2)">Batal</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function startEditTrx(id){
+  document.getElementById('ef_'+id).style.display='block';
+  document.querySelector('#trx_'+id+' .trx-view .trx-edit-btn').style.display='none';
+}
+function cancelEditTrx(id){
+  document.getElementById('ef_'+id).style.display='none';
+  document.querySelector('#trx_'+id+' .trx-view .trx-edit-btn').style.display='';
+}
+function saveTrxEdit(id){
+  const grand=parseInt(document.getElementById('et_grand_'+id).value)||0;
+  const payMethod=document.getElementById('et_pay_'+id).value;
+  const note=document.getElementById('et_note_'+id).value.trim();
+  if(!grand){showToast('⚠ Isi total yang valid');return;}
+  let all=loadTrx();
+  const idx=all.findIndex(t=>String(t.id)===String(id));
+  if(idx<0){showToast('⚠ Transaksi tidak ditemukan');return;}
+  const old=all[idx];
+  const diff=grand-old.grand;
+  all[idx]={...old,grand,payMethod,profit:old.profit+diff,paid:grand,kembalian:0,note};
+  ss('matcha_pos_trx',all);
+  showToast('✓ Transaksi diperbarui');
+  renderLaporan();
+}
+function deleteTrx(id){
+  if(!confirm('Hapus transaksi ini?'))return;
+  let all=loadTrx().filter(t=>String(t.id)!==String(id));
+  ss('matcha_pos_trx',all);
+  showToast('Transaksi dihapus');
+  renderLaporan();
+}
+
+// ── SETTINGS ──
+function showSettings(){document.getElementById('set-panel').classList.add('show');renderSettings();}
+function hideSettings(){document.getElementById('set-panel').classList.remove('show');}
+
+function renderSettings(){
+  const shopName=localStorage.getItem('pos_shopname')||'Matcha Booth';
+  const shopSub=localStorage.getItem('pos_shopsub')||'Premium Matcha Drinks';
+  let html=`
+    <div class="sec-hd">Info Toko (Struk)</div>
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:8px;display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:var(--text3);width:80px;flex-shrink:0">Nama Toko</span><input class="form-inp" id="sn" value="${shopName}" style="font-weight:700"></div>
+      <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:var(--text3);width:80px;flex-shrink:0">Tagline</span><input class="form-inp" id="ss" value="${shopSub}"></div>
+      <button class="save-chip" style="align-self:flex-end" onclick="saveShopInfo()">Simpan</button>
+    </div>
+    <div class="sec-hd">Menu Utama</div>`;
+
+  MENU_ITEMS.forEach((item,i)=>{html+=buildItemRow('menu',item,i);});
+
+  html+=`<div class="add-form"><h4>+ Tambah Menu Baru</h4>
+    <div class="form-row"><input class="form-inp" id="nem" placeholder="Emoji 🍵" style="width:60px;flex:none;text-align:center"><input class="form-inp" id="nnm" placeholder="Nama Menu"></div>
+    <div class="form-row"><input class="form-inp mono" id="njm" placeholder="Harga Jual" type="number"><input class="form-inp mono" id="nmm" placeholder="Modal" type="number"></div>
+    <button class="form-add-btn" onclick="addItem('menu')">+ Tambah Menu</button></div>
+    <div class="sec-hd">Add-On</div>`;
+
+  ADDON_ITEMS.forEach((item,i)=>{html+=buildItemRow('addon',item,i);});
+
+  html+=`<div class="add-form"><h4>+ Tambah Add-On Baru</h4>
+    <div class="form-row"><input class="form-inp" id="nea" placeholder="Emoji ✨" style="width:60px;flex:none;text-align:center"><input class="form-inp" id="nna" placeholder="Nama Add-On"></div>
+    <div class="form-row"><input class="form-inp mono" id="nja" placeholder="Harga Jual" type="number"><input class="form-inp mono" id="nma" placeholder="Modal" type="number"></div>
+    <button class="form-add-btn" onclick="addItem('addon')">+ Tambah Add-On</button></div>
+    <div style="margin-top:20px;padding:14px;background:var(--dangerbg);border:1px solid #330000;border-radius:10px">
+      <div style="font-size:10px;font-weight:700;color:var(--danger);margin-bottom:6px;letter-spacing:.1em;text-transform:uppercase">⚠ Reset Menu</div>
+      <div style="font-size:11px;color:#aa4444;margin-bottom:10px">Kembalikan semua menu ke default. Data transaksi tidak terpengaruh.</div>
+      <button onclick="resetDefault()" style="background:#2a0000;border:1px solid var(--danger);color:var(--danger);padding:6px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif">Reset ke Default</button>
+    </div><div style="height:40px"></div>`;
+
+  document.getElementById('set-body').innerHTML=html;
+}
+
+function buildItemRow(type,item,i){
+  const t=type[0];
+  return `<div class="settings-item">
+    <input class="form-inp" id="e_${t}${i}" value="${item.emoji}" style="width:42px;flex:none;text-align:center;font-size:18px;padding:4px">
+    <div class="si-info">
+      <input class="edit-name-inp" id="n_${t}${i}" value="${item.name}">
+      <div class="si-sub">${type==='menu'?'Menu Utama':'Add-On'}</div>
+    </div>
+    <div class="si-actions">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <input class="si-inp" id="j_${t}${i}" value="${item.jual}" placeholder="Harga Jual">
+        <input class="si-inp" id="m_${t}${i}" value="${item.modal}" placeholder="Modal">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <button class="save-chip" onclick="saveRow('${type}',${i})">✓ Simpan</button>
+        <button class="del-chip" onclick="deleteItem('${type}',${i})">✕ Hapus</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function saveShopInfo(){
+  const n=document.getElementById('sn').value.trim(),s=document.getElementById('ss').value.trim();
+  if(n)localStorage.setItem('pos_shopname',n);if(s)localStorage.setItem('pos_shopsub',s);
+  showToast('✓ Info toko disimpan');
+}
+
+function saveRow(type,i){
+  const t=type[0],arr=type==='menu'?MENU_ITEMS:ADDON_ITEMS;
+  const emoji=document.getElementById(`e_${t}${i}`).value.trim();
+  const name=document.getElementById(`n_${t}${i}`).value.trim();
+  const jual=parseInt(document.getElementById(`j_${t}${i}`).value)||0;
+  const modal=parseInt(document.getElementById(`m_${t}${i}`).value)||0;
+  if(!name||!jual){showToast('⚠ Isi nama dan harga');return;}
+  arr[i]={...arr[i],emoji:emoji||arr[i].emoji,name,jual,modal};
+  type==='menu'?saveMenu():saveAddons();
+  renderMenu();showToast('✓ '+name+' — '+fmt(jual));
+}
+
+function deleteItem(type,i){
+  const arr=type==='menu'?MENU_ITEMS:ADDON_ITEMS;
+  if(!confirm('Hapus "'+arr[i].name+'"?'))return;
+  arr.splice(i,1);type==='menu'?saveMenu():saveAddons();
+  renderMenu();renderSettings();showToast('Dihapus');
+}
+
+function addItem(type){
+  const p=type==='menu';
+  const emoji=document.getElementById(p?'nem':'nea').value.trim()||'☕';
+  const name=document.getElementById(p?'nnm':'nna').value.trim();
+  const jual=parseInt(document.getElementById(p?'njm':'nja').value)||0;
+  const modal=parseInt(document.getElementById(p?'nmm':'nma').value)||0;
+  if(!name||!jual){showToast('⚠ Isi nama dan harga jual');return;}
+  const newItem={id:uid(),cat:type,emoji,name,jual,modal};
+  p?(MENU_ITEMS.push(newItem),saveMenu()):(ADDON_ITEMS.push(newItem),saveAddons());
+  renderMenu();renderSettings();showToast('✓ '+name+' ditambahkan');
+}
+
+function resetDefault(){
+  if(!confirm('Reset semua menu ke default?'))return;
+  MENU_ITEMS=JSON.parse(JSON.stringify(DEFAULT_MENU));
+  ADDON_ITEMS=JSON.parse(JSON.stringify(DEFAULT_ADDONS));
+  saveMenu();saveAddons();renderMenu();renderSettings();showToast('↺ Reset ke default');
+}
+
+// ── MISC ──
+function clearCart(){if(!cart.length)return;if(!confirm('Kosongkan keranjang?'))return;cart=[];cashStr='';document.getElementById('cash-in').value='';renderCart();renderMenu();}
+let toastT;
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200);}
+
+// ── EMERGENCY RESET ──
+function emergencyReset(){
+  if(!confirm('Pulihkan menu ke default? Data harga yang diubah akan hilang, tapi data transaksi tetap aman.'))return;
+  localStorage.removeItem('pos_menu');
+  localStorage.removeItem('pos_addons');
+  MENU_ITEMS=JSON.parse(JSON.stringify(DEFAULT_MENU));
+  ADDON_ITEMS=JSON.parse(JSON.stringify(DEFAULT_ADDONS));
+  saveMenu();saveAddons();
+  buildCats();renderMenu();renderCart();
+  document.getElementById('reset-btn').style.display='none';
+  showToast('✓ Menu dipulihkan ke default');
+}
+
+// Show recovery button if menu appears empty after load
+window.addEventListener('DOMContentLoaded',()=>{
+  setTimeout(()=>{
+    if(document.getElementById('menu-grid').children.length===0){
+      document.getElementById('reset-btn').style.display='';
+    }
+  },500);
+});
+
+// ── INIT ──
+buildCats();renderMenu();renderCart();buildNumpad();setPay('tunai');
+</script>
+</body>
+</html>
