@@ -460,7 +460,7 @@ function renderMenu(){
 
 // ── CART ──
 function addToCart(item){
-  cart.push({_id:uid(),id:item.id,name:item.name,jual:item.jual,modal:item.modal,qty:1,addons:[],disc:null});
+  cart.push({_id:uid(),id:item.id,name:item.name,jual:item.jual,modal:item.modal,qty:1,addons:[],disc:null,isCup:item.isCup!==false});
   renderCart();renderMenu();showToast('+ '+item.name);
 }
 function removeFromCart(i){cart.splice(i,1);renderCart();renderMenu();}
@@ -962,7 +962,7 @@ function renderLaporan(){
   const trxs=loadTrx().filter(t=>t.date===date);
   const rev=trxs.reduce((s,t)=>s+t.grand,0),profit=trxs.reduce((s,t)=>s+t.profit,0);
   const discGiven=trxs.reduce((s,t)=>s+(t.discTotal||0),0);
-  const cups=trxs.reduce((s,t)=>s+t.items.reduce((ss,i)=>ss+i.qty,0),0),margin=rev>0?Math.round(profit/rev*100):0;
+  const cups=trxs.reduce((s,t)=>s+t.items.reduce((ss,i)=>ss+(i.isCup!==false?i.qty:0),0),0),margin=rev>0?Math.round(profit/rev*100):0;
   const imap={},amap={};
   trxs.forEach(t=>{t.items.forEach(i=>{if(!imap[i.name])imap[i.name]={qty:0,rev:0};imap[i.name].qty+=i.qty;imap[i.name].rev+=i.jual*i.qty;i.addons.forEach(a=>{if(!amap[a.name])amap[a.name]={qty:0,rev:0};amap[a.name].qty+=i.qty;amap[a.name].rev+=a.price*i.qty;});});});
   document.getElementById('lap-body').innerHTML=`
@@ -1157,11 +1157,16 @@ function renderSettings(){
 
 function buildItemRow(type,item,i){
   const t=type[0];
+  const isCup=item.isCup!==false;
   return `<div class="settings-item">
     <input class="form-inp" id="e_${t}${i}" value="${item.emoji}" style="width:42px;flex:none;text-align:center;font-size:18px;padding:4px">
     <div class="si-info">
       <input class="edit-name-inp" id="n_${t}${i}" value="${item.name}">
       <div class="si-sub">${type==='menu'?'Menu Utama':'Add-On'}</div>
+      ${type==='menu'?`<label style="display:flex;align-items:center;gap:5px;margin-top:5px;font-size:10px;color:var(--text3);cursor:pointer">
+        <input type="checkbox" id="c_${t}${i}" ${isCup?'checked':''} style="width:13px;height:13px;cursor:pointer">
+        Hitung sebagai cup di laporan
+      </label>`:''}
     </div>
     <div class="si-actions">
       <div style="display:flex;flex-direction:column;gap:4px">
@@ -1189,7 +1194,12 @@ function saveRow(type,i){
   const jual=parseInt(document.getElementById(`j_${t}${i}`).value)||0;
   const modal=parseInt(document.getElementById(`m_${t}${i}`).value)||0;
   if(!name||!jual){showToast('⚠ Isi nama dan harga');return;}
-  arr[i]={...arr[i],emoji:emoji||arr[i].emoji,name,jual,modal};
+  const updates={emoji:emoji||arr[i].emoji,name,jual,modal};
+  if(type==='menu'){
+    const cupChk=document.getElementById(`c_${t}${i}`);
+    updates.isCup=cupChk?cupChk.checked:true;
+  }
+  arr[i]={...arr[i],...updates};
   type==='menu'?saveMenu():saveAddons();
   renderMenu();showToast('✓ '+name+' — '+fmt(jual));
 }
@@ -1208,7 +1218,7 @@ function addItem(type){
   const jual=parseInt(document.getElementById(p?'njm':'nja').value)||0;
   const modal=parseInt(document.getElementById(p?'nmm':'nma').value)||0;
   if(!name||!jual){showToast('⚠ Isi nama dan harga jual');return;}
-  const newItem={id:uid(),cat:type,emoji,name,jual,modal};
+  const newItem={id:uid(),cat:type,emoji,name,jual,modal,isCup:true};
   p?(MENU_ITEMS.push(newItem),saveMenu()):(ADDON_ITEMS.push(newItem),saveAddons());
   renderMenu();renderSettings();showToast('✓ '+name+' ditambahkan');
 }
