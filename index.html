@@ -160,6 +160,14 @@ body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);displa
 .apbtn.sel .abp{color:var(--text2)}
 
 .modal-btns{display:flex;gap:6px}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 auto;max-width:240px}
+.pin-key{background:var(--s3);border:1px solid var(--border2);color:var(--text);font-size:20px;font-weight:700;padding:14px;border-radius:10px;cursor:pointer;font-family:'JetBrains Mono',monospace;transition:background .1s}
+.pin-key:active{background:var(--s4)}
+.pin-key.pin-cancel{background:var(--dangerbg);border-color:#330000;color:var(--danger);font-size:14px}
+.pin-key.pin-del{font-size:16px}
+.pin-dot{width:12px;height:12px;border-radius:50%;background:var(--border2);border:2px solid var(--border2);transition:all .15s}
+.pin-dot.filled{background:#7CFFB2;border-color:#7CFFB2}
+.pin-dot.error{background:var(--danger);border-color:var(--danger)}
 .mbtn{flex:1;padding:10px;border-radius:8px;font-size:13px;font-weight:700;font-family:'Sora',sans-serif;cursor:pointer;border:none;transition:all .12s}
 .mbtn.cancel{background:var(--s3);color:var(--text2)}
 .mbtn.cancel:hover{background:var(--s4)}
@@ -267,6 +275,7 @@ body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);displa
     <button class="tbtn" onclick="showSettings()">⚙ Edit Menu</button>
     <button class="tbtn" id="reset-btn" onclick="emergencyReset()" style="display:none;border-color:#330000;color:#ff6666" title="Klik jika menu hilang">↺ Pulihkan</button>
     <button class="tbtn" onclick="showLaporan()">▤ Laporan</button>
+    <button class="tbtn" id="lock-btn" onclick="ownerLock()" style="display:none" title="Kunci mode pemilik">🔒 Kunci</button>
     <button class="tbtn danger" onclick="clearCart()">✕ Kosongkan</button>
   </div>
 </div>
@@ -347,6 +356,33 @@ body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);displa
 <!-- RECEIPT -->
 <div class="overlay" id="rcpt-overlay">
   <div class="receipt-wrap" id="rcpt-content"></div>
+</div>
+
+<!-- PIN OVERLAY -->
+<div class="overlay" id="pin-overlay">
+  <div class="modal" style="max-width:320px;text-align:center">
+    <div id="pin-icon" style="font-size:32px;margin-bottom:6px">🔒</div>
+    <h3 id="pin-title">Masukkan PIN</h3>
+    <p id="pin-subtitle" style="font-size:11px;color:var(--text3);margin-bottom:16px">Hanya pemilik yang dapat mengakses halaman ini</p>
+    <div id="pin-dots" style="display:flex;justify-content:center;gap:10px;margin-bottom:20px">
+      <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+    </div>
+    <div class="pin-pad">
+      <button class="pin-key" onclick="pinKey('1')">1</button>
+      <button class="pin-key" onclick="pinKey('2')">2</button>
+      <button class="pin-key" onclick="pinKey('3')">3</button>
+      <button class="pin-key" onclick="pinKey('4')">4</button>
+      <button class="pin-key" onclick="pinKey('5')">5</button>
+      <button class="pin-key" onclick="pinKey('6')">6</button>
+      <button class="pin-key" onclick="pinKey('7')">7</button>
+      <button class="pin-key" onclick="pinKey('8')">8</button>
+      <button class="pin-key" onclick="pinKey('9')">9</button>
+      <button class="pin-key pin-cancel" onclick="pinCancel()">✕</button>
+      <button class="pin-key" onclick="pinKey('0')">0</button>
+      <button class="pin-key pin-del" onclick="pinBackspace()">⌫</button>
+    </div>
+    <div id="pin-error" style="font-size:11px;color:var(--danger);margin-top:12px;min-height:16px"></div>
+  </div>
 </div>
 
 <!-- LAPORAN -->
@@ -695,7 +731,7 @@ function checkout(){
   document.getElementById('cart-disc-toggle').classList.remove('active');
   document.getElementById('cart-disc-val').value='';
   renderCart();renderMenu();
-  showToast('✓ Berhasil — Profit: '+fmt(trx.profit));
+  showToast('✓ Berhasil'+(ownerUnlocked?' — Profit: '+fmt(trx.profit):''));
 }
 
 // ── RECEIPT ──
@@ -953,7 +989,79 @@ function saveTrx(t){let d=loadTrx();d.push(t);ss('matcha_pos_trx',d);}
 function loadTrx(){return ls('matcha_pos_trx',[]);}
 
 // ── LAPORAN ──
-function showLaporan(){document.getElementById('lap-date').value=today();document.getElementById('lap-panel').classList.add('show');renderLaporan();}
+// ── PIN / OWNER LOCK ──
+const DEFAULT_PIN='1234';
+let ownerUnlocked=false;
+let pinEntry='';
+let pinCallback=null;
+
+function getPin(){return localStorage.getItem('pos_pin')||DEFAULT_PIN;}
+
+function requirePin(callback){
+  if(ownerUnlocked){callback();return;}
+  pinCallback=callback;
+  pinEntry='';
+  updatePinDots();
+  document.getElementById('pin-error').textContent='';
+  document.getElementById('pin-title').textContent='Masukkan PIN';
+  document.getElementById('pin-icon').textContent='🔒';
+  document.getElementById('pin-overlay').classList.add('show');
+}
+
+function pinKey(digit){
+  if(pinEntry.length>=4)return;
+  pinEntry+=digit;
+  updatePinDots();
+  if(pinEntry.length===4)setTimeout(pinSubmit,120);
+}
+
+function pinBackspace(){
+  pinEntry=pinEntry.slice(0,-1);
+  updatePinDots();
+  document.getElementById('pin-error').textContent='';
+}
+
+function pinCancel(){
+  pinEntry='';pinCallback=null;
+  document.getElementById('pin-overlay').classList.remove('show');
+}
+
+function updatePinDots(){
+  document.querySelectorAll('.pin-dot').forEach((d,i)=>{
+    d.classList.toggle('filled',i<pinEntry.length);
+    d.classList.remove('error');
+  });
+}
+
+function pinSubmit(){
+  if(pinEntry===getPin()){
+    ownerUnlocked=true;
+    const lb=document.getElementById('lock-btn');
+    if(lb)lb.style.display='inline-flex';
+    document.getElementById('pin-overlay').classList.remove('show');
+    if(pinCallback){const cb=pinCallback;pinCallback=null;cb();}
+  }else{
+    document.querySelectorAll('.pin-dot').forEach(d=>d.classList.add('error'));
+    document.getElementById('pin-error').textContent='PIN salah. Coba lagi.';
+    pinEntry='';
+    setTimeout(updatePinDots,600);
+  }
+}
+
+function ownerLock(){
+  ownerUnlocked=false;
+  const lb=document.getElementById('lock-btn');
+  if(lb)lb.style.display='none';
+  showToast('🔒 Terkunci');
+}
+
+function changePin(newPin){
+  if(!newPin||newPin.length<4){showToast('⚠ PIN harus 4 digit');return;}
+  localStorage.setItem('pos_pin',newPin);
+  showToast('✓ PIN berhasil diubah');
+}
+
+function showLaporan(){requirePin(()=>{document.getElementById('lap-date').value=today();document.getElementById('lap-panel').classList.add('show');renderLaporan();});}
 function hideLaporan(){document.getElementById('lap-panel').classList.remove('show');}
 document.getElementById('lap-date').addEventListener('change',renderLaporan);
 
@@ -1071,7 +1179,7 @@ function deleteTrx(id){
 }
 
 // ── SETTINGS ──
-function showSettings(){document.getElementById('set-panel').classList.add('show');renderSettings();}
+function showSettings(){requirePin(()=>{document.getElementById('set-panel').classList.add('show');renderSettings();});}
 function hideSettings(){document.getElementById('set-panel').classList.remove('show');}
 
 function renderSettings(){
@@ -1080,6 +1188,15 @@ function renderSettings(){
   const btSupported=isBtSupported();
   const btName=localStorage.getItem('pos_bt_name')||'';
   let html=`
+    <div class="sec-hd">🔒 Keamanan</div>
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:8px;display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:11px;color:var(--text3);line-height:1.5">PIN digunakan untuk mengakses Laporan dan menu ini. Default PIN: <b style="color:var(--text);font-family:'JetBrains Mono',monospace">1234</b> — ubah sekarang.</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input class="form-inp mono" id="new-pin" type="password" inputmode="numeric" maxlength="4" placeholder="PIN baru (4 digit)" style="letter-spacing:4px;font-size:16px">
+        <button class="save-chip" style="flex-shrink:0" onclick="changePinFromInput()">Ganti PIN</button>
+      </div>
+      <button onclick="ownerLock()" style="background:var(--dangerbg);border:1px solid #330000;color:var(--danger);padding:8px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Sora',sans-serif;width:100%">🔒 Kunci Sekarang</button>
+    </div>
     <div class="sec-hd">Info Toko (Struk)</div>
     <div style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:8px;display:flex;flex-direction:column;gap:8px">
       <div style="display:flex;align-items:center;gap:10px"><span style="font-size:11px;color:var(--text3);width:80px;flex-shrink:0">Nama Toko</span><input class="form-inp" id="sn" value="${shopName}" style="font-weight:700"></div>
@@ -1185,6 +1302,13 @@ function saveShopInfo(){
   const n=document.getElementById('sn').value.trim(),s=document.getElementById('ss').value.trim();
   if(n)localStorage.setItem('pos_shopname',n);if(s)localStorage.setItem('pos_shopsub',s);
   showToast('✓ Info toko disimpan');
+}
+
+function changePinFromInput(){
+  const v=document.getElementById('new-pin').value.trim();
+  if(!/^\d{4}$/.test(v)){showToast('⚠ PIN harus 4 angka');return;}
+  changePin(v);
+  document.getElementById('new-pin').value='';
 }
 
 function saveRow(type,i){
